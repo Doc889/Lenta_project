@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Лентик</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      transition: background 0.4s ease, color 0.4s ease;
+    }
+
+    .chat-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background-color: #004990;
+      color: white;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      font-size: 28px;
+      transition: background 0.3s, color 0.3s;
+      z-index: 10;
+    }
+    .chat-button:hover { background-color: #ffcc00; color: #004990; }
+
+    .chat-box {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      width: 320px;
+      height: 0;
+      border-radius: 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      background: white;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      transform: scale(0.5);
+      transform-origin: bottom right;
+      transition: all 0.4s ease;
+      z-index: 10;
+    }
+    .chat-box.open { height: 420px; opacity: 1; transform: scale(1); }
+
+    .chat-header { background: #004990; color: #ffcc00; padding: 12px; font-weight: bold; text-align: center; font-size: 16px; }
+
+    .chat-messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      font-size: 14px;
+      background: #f9f9f9;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.4s ease;
+    }
+
+    .chat-input { display: flex; border-top: 1px solid #ddd; }
+    .chat-input input { flex: 1; padding: 10px; border: none; outline: none; transition: background 0.4s ease, color 0.4s ease; }
+    .chat-input button { background: #004990; color: white; border: none; padding: 0 15px; cursor: pointer; transition: background 0.3s, color 0.3s; }
+    .chat-input button:hover { background: #ffcc00; color: #004990; }
+
+    /* Сообщения */
+    .message-wrapper {
+      display: flex;
+      align-items: flex-end;
+      margin: 8px 0;
+      /* убираем max-width, чтобы фон аватара не сжимался */
+    }
+    .message-wrapper.user { justify-content: flex-end; }
+
+    .message {
+      padding: 8px 12px;
+      border-radius: 12px;
+      word-wrap: break-word;
+      transition: background 0.4s ease, color 0.4s ease;
+      /* небольшой отступ от аватара */
+      margin-left: 6px;
+      margin-right: 6px;
+    }
+    .user-message { background: #e1f0ff; border-bottom-right-radius: 0; }
+    .bot-message { background: #fff3cc; border-bottom-left-radius: 0; }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      margin: 0 6px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 16px;
+      flex-shrink: 0; /* важно: аватар не сжимается */
+    }
+    .bot-avatar { background: #004990; color: #ffcc00; }
+    .user-avatar { background: #ffcc00; color: #004990; }
+
+    .theme-toggle {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      font-size: 14px;
+      background: transparent;
+      border: 1px solid currentColor;
+      border-radius: 8px;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: background 0.3s, color 0.3s, border 0.3s;
+      z-index: 10;
+    }
+
+    /* Тёмная тема */
+    body.dark { background: #1e1e1e; }
+    body.dark .chat-box { background: #2a2a2a; color: #f1f1f1; }
+    body.dark .chat-header { background: #222; color: #ffcc00; }
+    body.dark .chat-messages { background: #1e1e1e; }
+    body.dark .chat-input input { background: #333; color: #fff; }
+    body.dark .chat-input button { background: #ffcc00; color: #1e1e1e; }
+    body.dark .chat-input button:hover { background: #004990; color: #fff; }
+    body.dark .user-message { background: #3a4a5a; color: #fff; }
+    body.dark .bot-message { background: #5a4a2a; color: #fff; }
+    body.dark .chat-button { background: #000; color: #ffcc00; }
+    body.dark .chat-button:hover { background: #ffcc00; color: #000; }
+  </style>
+</head>
+<body>
+
+  <!-- Переключатель темы -->
+  <button class="theme-toggle" id="themeToggle">🌙</button>
+
+  <!-- Кнопка открытия -->
+  <button class="chat-button" id="chatToggle">💬</button>
+
+  <!-- Чат -->
+  <div class="chat-box" id="chatBox">
+    <div class="chat-header">Лентик</div>
+    <div class="chat-messages" id="messages"></div>
+    <div class="chat-input">
+      <input type="text" id="userInput" placeholder="Напишите сообщение..." />
+      <button onclick="sendMessage()">➤</button>
+    </div>
+  </div>
+
+  <script>
+    const chatToggle = document.getElementById("chatToggle");
+    const chatBox = document.getElementById("chatBox");
+    const messagesDiv = document.getElementById("messages");
+    const userInput = document.getElementById("userInput");
+    const themeToggle = document.getElementById("themeToggle");
+
+    chatToggle.addEventListener("click", () => { chatBox.classList.toggle("open"); });
+
+    userInput.addEventListener("keydown", (e) => { if(e.key==="Enter"){ e.preventDefault(); sendMessage(); } });
+
+    themeToggle.addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+      const isDark = document.body.classList.contains("dark");
+      localStorage.setItem("chatTheme", isDark ? "dark" : "light");
+      themeToggle.textContent = isDark ? "☀️" : "🌙";
+    });
+
+    window.addEventListener("load", () => {
+      const savedTheme = localStorage.getItem("chatTheme");
+      if(savedTheme==="dark"){ document.body.classList.add("dark"); themeToggle.textContent="☀️"; }
+    });
+
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if(!text) return;
+      addMessage(text,"user");
+      userInput.value="";
+      try {
+        const response = await fetch("http://127.0.0.1:8000/ask",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({question:text})
+        });
+        const data = await response.json();
+        addMessage(data.answer,"bot");
+      } catch(err){ addMessage("Ошибка соединения с сервером.","bot"); }
+    }
+
+    function addMessage(text,sender){
+      const wrapper=document.createElement("div");
+      wrapper.classList.add("message-wrapper");
+      if(sender==="user") wrapper.classList.add("user");
+
+      const avatar=document.createElement("div");
+      avatar.classList.add("avatar");
+      if(sender==="user"){ avatar.classList.add("user-avatar"); avatar.innerText="🙂"; }
+      else { avatar.classList.add("bot-avatar"); avatar.innerText="🤖"; }
+
+      const msg=document.createElement("div");
+      msg.classList.add("message");
+      msg.classList.add(sender==="user"?"user-message":"bot-message");
+      msg.innerText=text;
+
+      if(sender==="user"){ wrapper.appendChild(msg); wrapper.appendChild(avatar); }
+      else { wrapper.appendChild(avatar); wrapper.appendChild(msg); }
+
+      messagesDiv.appendChild(wrapper);
+      messagesDiv.scrollTop=messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
